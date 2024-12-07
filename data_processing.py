@@ -2,13 +2,13 @@ import os
 import zipfile
 import shutil
 
-# Paths
+# files Paths
 zip_file_path = "Arabic_PCM.zip"
 extracted_folder = "Arabic_PCM"
 arabic_folder = "Arabic"
 pcm_folder = "PCM"
 
-# Step 1: Uncompress Files
+# first step Uncompress Files
 def extract_zip(zip_file_path, extracted_folder):
     with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
         zip_ref.extractall(extracted_folder)
@@ -24,7 +24,7 @@ def organize_files():
         elif filename.startswith("pcm"):
             shutil.move(os.path.join(extracted_folder, filename), os.path.join(pcm_folder, filename))
 
-# Step 3: File Matching (Ensure they have the same suffix)
+# Step 3: File Matching Ensure they have the same suffix
 def match_files():
     arabic_files = sorted(os.listdir(arabic_folder))
     pcm_files = sorted(os.listdir(pcm_folder))
@@ -61,7 +61,7 @@ def concatenate_files(matched_files):
                 arabic_output.write(f1.read())
                 pcm_output.write(f2.read())
 
-# Main Execution
+# Main 
 extract_zip(zip_file_path, extracted_folder)
 organize_files()
 matched_files = match_files()
