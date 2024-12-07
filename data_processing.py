@@ -2,70 +2,87 @@ import os
 import zipfile
 import shutil
 
-# files Paths
+# Paths to the zip file and extraction folder
 zip_file_path = "Arabic_PCM.zip"
-extracted_folder = "Arabic_PCM"
-arabic_folder = "Arabic"
-pcm_folder = "PCM"
+extract_folder = "extracted_files"
 
-# first step Uncompress Files
-def extract_zip(zip_file_path, extracted_folder):
+# Create directories for Arabic and PCM
+arabic_folder = os.path.join(extract_folder, "Arabic")
+pcm_folder = os.path.join(extract_folder, "PCM")
+mismatched_folder = "mismatched_files"
+
+os.makedirs(arabic_folder, exist_ok=True)
+os.makedirs(pcm_folder, exist_ok=True)
+os.makedirs(mismatched_folder, exist_ok=True)
+
+# Uncompress the zip file
+print(f"Uncompressing {zip_file_path}...")
+try:
     with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
-        zip_ref.extractall(extracted_folder)
+        zip_ref.extractall(extract_folder)
+    print(f"Files extracted to {extract_folder}")
+except Exception as e:
+    print(f"Error during extraction: {e}")
 
-# Step 2: Organize Files into Arabic and PCM folders
-def organize_files():
-    os.makedirs(arabic_folder, exist_ok=True)
-    os.makedirs(pcm_folder, exist_ok=True)
+# Check if files are extracted and move them to respective folders
+extracted_files = os.listdir(extract_folder)
+for file in extracted_files:
+    if file.startswith("arabic"):
+        os.rename(os.path.join(extract_folder, file), os.path.join(arabic_folder, file))
+    elif file.startswith("pcm"):
+        os.rename(os.path.join(extract_folder, file), os.path.join(pcm_folder, file))
 
-    for filename in os.listdir(extracted_folder):
-        if filename.startswith("arabic"):
-            shutil.move(os.path.join(extracted_folder, filename), os.path.join(arabic_folder, filename))
-        elif filename.startswith("pcm"):
-            shutil.move(os.path.join(extracted_folder, filename), os.path.join(pcm_folder, filename))
+print(f"Arabic files: {os.listdir(arabic_folder)}")
+print(f"PCM files: {os.listdir(pcm_folder)}")
 
-# Step 3: File Matching Ensure they have the same suffix
-def match_files():
-    arabic_files = sorted(os.listdir(arabic_folder))
-    pcm_files = sorted(os.listdir(pcm_folder))
+# Match files based on suffix
+arabic_files = os.listdir(arabic_folder)
+pcm_files = os.listdir(pcm_folder)
 
-    # Check if files match by name
-    matched_files = []
-    for arabic_file in arabic_files:
-        pcm_file = arabic_file.replace("arabic", "pcm")
-        if pcm_file in pcm_files:
-            matched_files.append((os.path.join(arabic_folder, arabic_file), os.path.join(pcm_folder, pcm_file)))
-    return matched_files
+matched_files = []
+mismatched_files = []
 
-# Step 4: Line Matching and creating a folder for mismatched files
-def line_matching(matched_files):
-    mismatched_folder = "Mismatched_Files"
-    os.makedirs(mismatched_folder, exist_ok=True)
-
-    for arabic_file, pcm_file in matched_files:
-        with open(arabic_file, 'r') as f1, open(pcm_file, 'r') as f2:
-            arabic_lines = f1.readlines()
-            pcm_lines = f2.readlines()
-
-        if len(arabic_lines) != len(pcm_lines):
-            shutil.move(arabic_file, os.path.join(mismatched_folder, os.path.basename(arabic_file)))
-            shutil.move(pcm_file, os.path.join(mismatched_folder, os.path.basename(pcm_file)))
+# Match files
+for arabic_file in arabic_files:
+    suffix = arabic_file.split("_")[1]  # Extract the suffix (e.g., "002")
+    pcm_file = f"pcm_{suffix}"  # Build corresponding PCM file name
     
-    return matched_files
+    if pcm_file in pcm_files:
+        # Check if number of lines match
+        with open(os.path.join(arabic_folder, arabic_file), 'r') as arabic_f:
+            arabic_lines = arabic_f.readlines()
+        
+        with open(os.path.join(pcm_folder, pcm_file), 'r') as pcm_f:
+            pcm_lines = pcm_f.readlines()
+        
+        if len(arabic_lines) == len(pcm_lines):
+            matched_files.append((arabic_file, pcm_file))
+        else:
+            mismatched_files.append((arabic_file, pcm_file))
+    else:
+        print(f"No matching PCM file for {arabic_file}")
 
-# Step 5: Concatenate Files into master files
-def concatenate_files(matched_files):
-    with open("Arabic_all.txt", 'w') as arabic_output, open("PCM_all.txt", 'w') as pcm_output:
-        for arabic_file, pcm_file in matched_files:
-            with open(arabic_file, 'r') as f1, open(pcm_file, 'r') as f2:
-                arabic_output.write(f1.read())
-                pcm_output.write(f2.read())
+# Move mismatched files to a new folder
+for arabic_file, pcm_file in mismatched_files:
+    shutil.move(os.path.join(arabic_folder, arabic_file), os.path.join(mismatched_folder, arabic_file))
+    shutil.move(os.path.join(pcm_folder, pcm_file), os.path.join(mismatched_folder, pcm_file))
 
-# Main 
-extract_zip(zip_file_path, extracted_folder)
-organize_files()
-matched_files = match_files()
-matched_files = line_matching(matched_files)
-concatenate_files(matched_files)
+# Print matched and mismatched file counts
+print(f"Matched files: {len(matched_files)}")
+print(f"Mismatched files moved to {mismatched_folder}")
 
-print("Data processing completed. Arabic_all.txt and PCM_all.txt have been created.")
+# Concatenate matched files into two master files
+with open("Arabic_all.txt", 'w') as arabic_all_f, open("PCM_all.txt", 'w') as pcm_all_f:
+    for arabic_file, pcm_file in matched_files:
+        with open(os.path.join(arabic_folder, arabic_file), 'r') as arabic_f:
+            arabic_lines = arabic_f.readlines()
+        
+        with open(os.path.join(pcm_folder, pcm_file), 'r') as pcm_f:
+            pcm_lines = pcm_f.readlines()
+        
+        # Write Arabic and PCM lines into their respective master files
+        for arabic_line, pcm_line in zip(arabic_lines, pcm_lines):
+            arabic_all_f.write(arabic_line)
+            pcm_all_f.write(pcm_line)
+
+print("Files concatenated into Arabic_all.txt and PCM_all.txt")
